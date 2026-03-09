@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: khettak_postgres
+    environment:
+      POSTGRES_DB: khettak
+      POSTGRES_USER: khettak
+      POSTGRES_PASSWORD: khettak
+    ports:
+      - "5432:5432"
+    volumes:
+      - khettak_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U khettak -d khettak"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: khettak_api
+    environment:
+      DATABASE_URL: postgresql+psycopg://khettak:khettak@postgres:5432/khettak
+      ALLOWED_ORIGINS: http://localhost:5173,http://localhost:19006
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin123
+      JWT_SECRET: change_me_to_a_long_random_secret
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  khettak_pgdata:
+

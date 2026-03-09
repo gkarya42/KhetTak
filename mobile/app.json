@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "KhetTak",
+    "slug": "khettak",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "platforms": ["android"],
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.khettak.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#16A34A"
+      }
+    },
+    "extra": {
+      "apiBaseUrl": "${EXPO_PUBLIC_API_BASE_URL}"
+    }
+  }
+}
+
