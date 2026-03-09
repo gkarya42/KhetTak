@@ -1,5 +1,6 @@
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -114,9 +115,12 @@ app.add_middleware(
 )
 
 WEB_DIR = "app/web"
-# Serve the built admin SPA and its assets from root.
-# API/docs routes are defined before this, so they keep precedence.
-app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
+app.mount("/web", StaticFiles(directory=WEB_DIR, html=True), name="web")
+
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    return RedirectResponse(url="/web/", status_code=302)
 
     
 
