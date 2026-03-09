@@ -1,10 +1,8 @@
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from starlette.requests import Request
 
 from app.auth import create_access_token, require_user
 from app.config import settings
@@ -116,8 +114,11 @@ app.add_middleware(
 )
 
 WEB_DIR = "app/web"
-app.mount("/web", StaticFiles(directory=WEB_DIR, html=True), name="web")
+# Serve the built admin SPA and its assets from root.
+# API/docs routes are defined before this, so they keep precedence.
+app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
 
+    
 
 @app.on_event("startup")
 def on_startup() -> None:
@@ -234,14 +235,4 @@ def admin_list_submissions(_user: str = Depends(require_user), db: Session = Dep
 def admin_analytics(_user: str = Depends(require_user), db: Session = Depends(get_db)) -> dict:
     submissions = db.scalars(select(Submission).order_by(Submission.created_at.desc())).all()
     return _compute_analytics(submissions)
-
-
-# --- Admin SPA fallback (single-host deploy) ---
-@app.get("/{full_path:path}")
-def spa_fallback(request: Request, full_path: str) -> FileResponse:
-    # Don't swallow API/docs paths
-    path = request.url.path
-    if path.startswith("/api/") or path in ("/health", "/docs", "/openapi.json", "/redoc") or path.startswith("/web/"):
-        raise HTTPException(status_code=404, detail="Not found")
-    return FileResponse(f"{WEB_DIR}/index.html")
 
