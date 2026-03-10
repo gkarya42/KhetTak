@@ -1,8 +1,9 @@
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.models import Question
 
+PRODUCT_OPTIONS = ["Corn Seeds", "Potato Seeds", "Pesticides"]
 
 DEFAULT_QUESTIONS: list[dict] = [
     {
@@ -22,24 +23,51 @@ DEFAULT_QUESTIONS: list[dict] = [
         "config": {"placeholder": "10-digit phone number"},
     },
     {
-        "key": "customer_village",
-        "label": "Customer village / address",
-        "type": "textarea",
+        "key": "state",
+        "label": "State",
+        "type": "text",
+        "required": True,
+        "order": 25,
+        "config": {"placeholder": "State"},
+    },
+    {
+        "key": "district",
+        "label": "District",
+        "type": "text",
+        "required": True,
+        "order": 26,
+        "config": {"placeholder": "District"},
+    },
+    {
+        "key": "city",
+        "label": "City",
+        "type": "text",
+        "required": True,
+        "order": 27,
+        "config": {"placeholder": "City"},
+    },
+    {
+        "key": "village",
+        "label": "Village",
+        "type": "text",
         "required": True,
         "order": 30,
-        "config": {"placeholder": "Village, tehsil, district"},
+        "config": {"placeholder": "Village"},
     },
     {
         "key": "products",
-        "label": "Product needs to buy",
+        "label": "Products to buy",
         "type": "line_items",
         "required": True,
         "order": 40,
         "config": {
             "item_label": "Product",
+            "product_options": PRODUCT_OPTIONS,
             "fields": [
-                {"key": "name", "label": "Product name", "type": "text", "required": True},
+                {"key": "product", "label": "Product", "type": "select", "options": PRODUCT_OPTIONS, "required": True},
                 {"key": "quantity", "label": "Quantity", "type": "text", "required": True},
+                {"key": "mrp", "label": "MRP", "type": "number", "required": True},
+                {"key": "selling_price", "label": "Selling price", "type": "number", "required": True},
                 {
                     "key": "can_fulfill",
                     "label": "Can we fulfill this item?",
@@ -68,10 +96,25 @@ def seed_defaults(db: Session) -> None:
         cur.order = q["order"]
         cur.config = q["config"]
 
-    # Remove the old global fulfill question if it exists (fulfill is now per product item).
-    legacy = existing.get("can_fulfill")
-    if legacy:
-        db.delete(legacy)
+    # Remove legacy questions replaced by new form
+    for key in ("can_fulfill", "customer_village"):
+        legacy = existing.get(key)
+        if legacy:
+            db.delete(legacy)
 
     db.commit()
+
+
+def ensure_order_id_column(engine):  # noqa: ANN001
+    """Add order_id column to submissions if missing (e.g. existing DB)."""
+    from sqlalchemy import inspect
+    insp = inspect(engine)
+    if "submissions" not in insp.get_table_names():
+        return
+    cols = [c["name"] for c in insp.get_columns("submissions")]
+    if "order_id" in cols:
+        return
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE submissions ADD COLUMN order_id VARCHAR(20) UNIQUE"))
+        conn.commit()
 

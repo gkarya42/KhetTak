@@ -30,7 +30,15 @@ type Question = {
 
 type Form = { questions: Question[] };
 
-type LineItem = { name: string; quantity: string; can_fulfill: boolean };
+const PRODUCT_OPTIONS = ["Corn Seeds", "Potato Seeds", "Pesticides"];
+
+type LineItem = {
+  product: string;
+  quantity: string;
+  mrp: string | number;
+  selling_price: string | number;
+  can_fulfill: boolean;
+};
 
 const GREEN = "#16A34A";
 const GREEN_DARK = "#0B3D1A";
@@ -86,7 +94,10 @@ export default function App() {
       const init: Record<string, any> = {};
       for (const q of f.questions) {
         if (q.type === "boolean") init[q.key] = false;
-        if (q.type === "line_items") init[q.key] = [{ name: "", quantity: "", can_fulfill: false } satisfies LineItem];
+        if (q.type === "line_items")
+          init[q.key] = [
+            { product: "", quantity: "", mrp: "", selling_price: "", can_fulfill: false } satisfies LineItem,
+          ];
       }
       setAnswers((prev) => ({ ...init, ...prev }));
     } catch (e: any) {
@@ -124,7 +135,12 @@ export default function App() {
       }
       if (q.type === "line_items" && Array.isArray(value)) {
         for (const item of value as LineItem[]) {
-          if (!item.name?.trim() || !item.quantity?.trim()) return `Please complete all items in: ${q.label}`;
+          if (!(item.product ?? "").toString().trim() || !(item.quantity ?? "").toString().trim())
+            return `Please complete all items in: ${q.label}`;
+          const m = Number(item.mrp);
+          const s = Number(item.selling_price);
+          if (Number.isNaN(m) || m < 0 || Number.isNaN(s) || s < 0)
+            return `Each item needs valid MRP and selling price`;
         }
       }
     }
@@ -306,35 +322,69 @@ export default function App() {
                       scrollEnabled={false}
                       renderItem={({ item, index }) => (
                         <View style={{ gap: 8 }}>
+                          <Text style={styles.muted}>Product</Text>
+                          <View style={styles.row}>
+                            {PRODUCT_OPTIONS.map((opt) => (
+                              <TouchableOpacity
+                                key={opt}
+                                style={[
+                                  styles.smallBtn,
+                                  (item.product ?? "") === opt && { backgroundColor: "#DCFCE7", borderColor: GREEN },
+                                ]}
+                                onPress={() => {
+                                  const next = [...((answers[q.key] ?? []) as LineItem[])];
+                                  next[index] = { ...next[index], product: opt };
+                                  setAnswer(q.key, next);
+                                }}
+                              >
+                                <Text style={styles.smallBtnText}>{opt}</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
                           <View style={styles.lineItemRow}>
                             <View style={{ flex: 1 }}>
-                            <Text style={styles.muted}>Product</Text>
-                            <TextInput
-                              value={item.name}
-                              onChangeText={(t) => {
-                                const next = [...((answers[q.key] ?? []) as LineItem[])];
-                                next[index] = { ...next[index], name: t };
-                                setAnswer(q.key, next);
-                              }}
-                              placeholder="e.g. Wheat seed"
-                              style={styles.input}
-                            />
+                              <Text style={styles.muted}>Qty</Text>
+                              <TextInput
+                                value={(item.quantity ?? "").toString()}
+                                onChangeText={(t) => {
+                                  const next = [...((answers[q.key] ?? []) as LineItem[])];
+                                  next[index] = { ...next[index], quantity: t };
+                                  setAnswer(q.key, next);
+                                }}
+                                placeholder="e.g. 5"
+                                keyboardType="numeric"
+                                style={styles.input}
+                              />
+                            </View>
+                            <View style={{ width: 90 }}>
+                              <Text style={styles.muted}>MRP</Text>
+                              <TextInput
+                                value={(item.mrp ?? "").toString()}
+                                onChangeText={(t) => {
+                                  const next = [...((answers[q.key] ?? []) as LineItem[])];
+                                  next[index] = { ...next[index], mrp: t === "" ? "" : Number(t) };
+                                  setAnswer(q.key, next);
+                                }}
+                                placeholder="0"
+                                keyboardType="decimal-pad"
+                                style={styles.input}
+                              />
+                            </View>
+                            <View style={{ width: 90 }}>
+                              <Text style={styles.muted}>Sell price</Text>
+                              <TextInput
+                                value={(item.selling_price ?? "").toString()}
+                                onChangeText={(t) => {
+                                  const next = [...((answers[q.key] ?? []) as LineItem[])];
+                                  next[index] = { ...next[index], selling_price: t === "" ? "" : Number(t) };
+                                  setAnswer(q.key, next);
+                                }}
+                                placeholder="0"
+                                keyboardType="decimal-pad"
+                                style={styles.input}
+                              />
+                            </View>
                           </View>
-                          <View style={{ width: 120 }}>
-                            <Text style={styles.muted}>Qty</Text>
-                            <TextInput
-                              value={item.quantity}
-                              onChangeText={(t) => {
-                                const next = [...((answers[q.key] ?? []) as LineItem[])];
-                                next[index] = { ...next[index], quantity: t };
-                                setAnswer(q.key, next);
-                              }}
-                              placeholder="e.g. 5 kg"
-                              style={styles.input}
-                            />
-                          </View>
-                          </View>
-
                           <View style={styles.booleanRow}>
                             <Text style={styles.muted}>Fulfill this item?</Text>
                             <Switch
@@ -356,7 +406,7 @@ export default function App() {
                         onPress={() => {
                           const next = [
                             ...((answers[q.key] ?? []) as LineItem[]),
-                            { name: "", quantity: "", can_fulfill: false },
+                            { product: "", quantity: "", mrp: "", selling_price: "", can_fulfill: false },
                           ];
                           setAnswer(q.key, next);
                         }}

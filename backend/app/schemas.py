@@ -48,8 +48,10 @@ class SubmissionCreate(BaseModel):
 
 class SubmissionOut(BaseModel):
     id: uuid.UUID
+    order_id: str | None = None
     answers: dict[str, Any]
     created_at: datetime
+    total_amount: float | None = None
 
     class Config:
         from_attributes = True

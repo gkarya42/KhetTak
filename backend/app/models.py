@@ -1,3 +1,5 @@
+import random
+import string
 import uuid
 from datetime import datetime
 
@@ -6,6 +8,12 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
+
+
+def generate_order_id() -> str:
+    """Generate unique order ID: KTK + 8 random alphanumeric uppercase."""
+    chars = string.ascii_uppercase + string.digits
+    return "KTK" + "".join(random.choices(chars, k=8))
 
 
 class Question(Base):
@@ -29,6 +37,7 @@ class Submission(Base):
     __tablename__ = "submissions"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    order_id: Mapped[str | None] = mapped_column(String(20), unique=True, index=True, nullable=True)
     answers: Mapped[dict] = mapped_column(JSONB)
     form_snapshot: Mapped[dict] = mapped_column(JSONB)
 

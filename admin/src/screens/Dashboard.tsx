@@ -8,6 +8,7 @@ type Analytics = {
   top_villages: { village: string; count: number }[];
   top_products: { product: string; count: number }[];
   product_fulfillment_qty: { product: string; fulfilled_qty: number; unfulfilled_qty: number; total_qty: number }[];
+  orders_with_totals: { order_id: string; total_amount: number }[];
 };
 
 export function DashboardScreen() {
@@ -96,6 +97,31 @@ export function DashboardScreen() {
                     <td colSpan={2} className="muted">
                       Not enough data yet.
                     </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="card" style={{ gridColumn: "1 / -1" }}>
+            <div style={{ fontWeight: 900, marginBottom: 10 }}>Orders (Order ID &amp; total amount)</div>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Total amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data.orders_with_totals || []).map((o) => (
+                  <tr key={o.order_id}>
+                    <td style={{ fontFamily: "monospace", fontWeight: 700 }}>{o.order_id}</td>
+                    <td style={{ fontWeight: 700 }}>{o.total_amount}</td>
+                  </tr>
+                ))}
+                {(!data.orders_with_totals || data.orders_with_totals.length === 0) ? (
+                  <tr>
+                    <td colSpan={2} className="muted">No orders yet.</td>
                   </tr>
                 ) : null}
               </tbody>

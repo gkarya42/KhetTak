@@ -1,7 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api, type Question } from "../api";
 
-type LineItem = { name: string; quantity: string; can_fulfill: boolean };
+const PRODUCT_OPTIONS = ["Corn Seeds", "Potato Seeds", "Pesticides"];
+
+type LineItem = {
+  product: string;
+  quantity: string;
+  mrp: string | number;
+  selling_price: string | number;
+  can_fulfill: boolean;
+};
 
 function requiredMissing(value: any): boolean {
   if (value === null || value === undefined) return true;
@@ -33,7 +41,10 @@ export function CaptureScreen() {
       const init: Record<string, any> = {};
       for (const q of f.questions) {
         if (q.type === "boolean") init[q.key] = false;
-        if (q.type === "line_items") init[q.key] = [{ name: "", quantity: "", can_fulfill: false } satisfies LineItem];
+        if (q.type === "line_items")
+          init[q.key] = [
+            { product: "", quantity: "", mrp: "", selling_price: "", can_fulfill: false } satisfies LineItem,
+          ];
       }
       setAnswers((prev) => ({ ...init, ...prev }));
     } catch (e: any) {
@@ -57,7 +68,12 @@ export function CaptureScreen() {
       if (q.required && requiredMissing(value)) return `Please fill: ${q.label}`;
       if (q.type === "line_items" && Array.isArray(value)) {
         for (const item of value as LineItem[]) {
-          if (!item.name?.trim() || !item.quantity?.trim()) return `Please complete all items in: ${q.label}`;
+          if (!(item.product ?? "").toString().trim() || !(item.quantity ?? "").toString().trim())
+            return `Please complete all items in: ${q.label}`;
+          const m = Number(item.mrp);
+          const s = Number(item.selling_price);
+          if (Number.isNaN(m) || m < 0 || Number.isNaN(s) || s < 0)
+            return `Each item needs valid MRP and selling price`;
         }
       }
     }
@@ -170,41 +186,69 @@ export function CaptureScreen() {
               {q.type === "line_items" ? (
                 <div style={{ display: "grid", gap: 10 }}>
                   {(((answers[q.key] ?? []) as LineItem[]) || []).map((item, idx) => (
-                    <div key={idx} className="row">
-                      <div style={{ flex: 1, minWidth: 220 }}>
-                        <div className="muted" style={{ marginBottom: 6 }}>
-                          Product name
-                        </div>
-                        <input
+                    <div key={idx} style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
+                      <div style={{ minWidth: 160 }}>
+                        <div className="muted" style={{ marginBottom: 6 }}>Product</div>
+                        <select
                           className="input"
-                          value={item.name}
+                          value={(item.product ?? "").toString()}
                           onChange={(e) => {
                             const cur = [...(((answers[q.key] ?? []) as LineItem[]) || [])];
-                            cur[idx] = { ...cur[idx], name: e.target.value };
+                            cur[idx] = { ...cur[idx], product: e.target.value };
                             setAnswer(q.key, cur);
                           }}
-                          placeholder="e.g. Wheat seed"
-                        />
+                        >
+                          <option value="">Select</option>
+                          {PRODUCT_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
                       </div>
-                      <div style={{ width: 180, minWidth: 160 }}>
-                        <div className="muted" style={{ marginBottom: 6 }}>
-                          Quantity
-                        </div>
+                      <div style={{ width: 100 }}>
+                        <div className="muted" style={{ marginBottom: 6 }}>Quantity</div>
                         <input
                           className="input"
-                          value={item.quantity}
+                          value={(item.quantity ?? "").toString()}
                           onChange={(e) => {
                             const cur = [...(((answers[q.key] ?? []) as LineItem[]) || [])];
                             cur[idx] = { ...cur[idx], quantity: e.target.value };
                             setAnswer(q.key, cur);
                           }}
-                          placeholder="e.g. 5 kg"
+                          placeholder="e.g. 5"
                         />
                       </div>
-                      <div style={{ minWidth: 170 }}>
-                        <div className="muted" style={{ marginBottom: 6 }}>
-                          Fulfill?
-                        </div>
+                      <div style={{ width: 100 }}>
+                        <div className="muted" style={{ marginBottom: 6 }}>MRP</div>
+                        <input
+                          className="input"
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={(item.mrp ?? "").toString()}
+                          onChange={(e) => {
+                            const cur = [...(((answers[q.key] ?? []) as LineItem[]) || [])];
+                            cur[idx] = { ...cur[idx], mrp: e.target.value === "" ? "" : Number(e.target.value) };
+                            setAnswer(q.key, cur);
+                          }}
+                        />
+                      </div>
+                      <div style={{ width: 120 }}>
+                        <div className="muted" style={{ marginBottom: 6 }}>Selling price</div>
+                        <input
+                          className="input"
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={(item.selling_price ?? "").toString()}
+                          onChange={(e) => {
+                            const cur = [...(((answers[q.key] ?? []) as LineItem[]) || [])];
+                            cur[idx] = { ...cur[idx], selling_price: e.target.value === "" ? "" : Number(e.target.value) };
+                            setAnswer(q.key, cur);
+                          }}
+                        />
+                      </div>
+                      <div style={{ minWidth: 120 }}>
+                        <div className="muted" style={{ marginBottom: 6 }}>Fulfill?</div>
                         <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
                           <input
                             type="checkbox"
@@ -228,7 +272,7 @@ export function CaptureScreen() {
                       onClick={() =>
                         setAnswer(q.key, [
                           ...(((answers[q.key] ?? []) as LineItem[]) || []),
-                          { name: "", quantity: "", can_fulfill: false },
+                          { product: "", quantity: "", mrp: "", selling_price: "", can_fulfill: false },
                         ])
                       }
                     >

@@ -69,12 +69,16 @@ export function SubmissionsScreen() {
           <table className="table">
             <thead>
               <tr>
+                <th>Order ID</th>
                 <th>Time</th>
                 <th>Customer</th>
                 <th>Phone</th>
+                <th>State</th>
+                <th>District</th>
+                <th>City</th>
                 <th>Village</th>
                 <th>Products</th>
-                <th>Fulfill?</th>
+                <th>Total</th>
               </tr>
             </thead>
             <tbody>
@@ -83,28 +87,33 @@ export function SubmissionsScreen() {
                 const products = Array.isArray(a.products) ? a.products : [];
                 const productsText = products
                   .map((p: any) => {
-                    const name = `${p?.name || ""}`.trim();
-                    const qty = p?.quantity ? ` (${p.quantity})` : "";
-                    const fulfill = p?.can_fulfill === true ? "Yes" : p?.can_fulfill === false ? "No" : "";
-                    const f = fulfill ? ` - Fulfill: ${fulfill}` : "";
-                    return `${name}${qty}${f}`.trim();
+                    const name = `${p?.product || p?.name || ""}`.trim();
+                    const qty = p?.quantity ? ` ×${p.quantity}` : "";
+                    const mrp = p?.mrp != null ? ` MRP:${p.mrp}` : "";
+                    const sp = p?.selling_price != null ? ` SP:${p.selling_price}` : "";
+                    const fulfill = p?.can_fulfill === true ? " ✓" : p?.can_fulfill === false ? " ✗" : "";
+                    return `${name}${qty}${mrp}${sp}${fulfill}`.trim();
                   })
                   .filter(Boolean)
-                  .join(", ");
+                  .join("; ");
                 return (
                   <tr key={s.id}>
+                    <td style={{ fontFamily: "monospace", fontWeight: 700 }}>{s.order_id || "—"}</td>
                     <td>{formatDate(s.created_at)}</td>
                     <td>{a.customer_name || ""}</td>
                     <td>{a.customer_phone || ""}</td>
-                    <td>{a.customer_village || ""}</td>
+                    <td>{a.state || ""}</td>
+                    <td>{a.district || ""}</td>
+                    <td>{a.city || ""}</td>
+                    <td>{a.village || ""}</td>
                     <td style={{ maxWidth: 360 }}>{productsText}</td>
-                    <td className="muted">Per product</td>
+                    <td style={{ fontWeight: 700 }}>{s.total_amount != null ? s.total_amount : "—"}</td>
                   </tr>
                 );
               })}
               {rows.length === 0 && !loading ? (
                 <tr>
-                  <td colSpan={6} className="muted">
+                  <td colSpan={10} className="muted">
                     No entries yet.
                   </td>
                 </tr>

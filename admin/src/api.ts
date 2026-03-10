@@ -51,8 +51,10 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 
 export type Submission = {
   id: string;
+  order_id?: string | null;
   answers: Record<string, any>;
   created_at: string;
+  total_amount?: number | null;
 };
 
 export const api = {

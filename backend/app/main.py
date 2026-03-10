@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.auth import create_access_token, require_user
 from app.config import settings
 from app.db import Base, engine, get_db
-from app.models import Question, Submission
+from app.models import Question, Submission, generate_order_id
 from app.schemas import (
     FormOut,
     LoginRequest,
@@ -19,8 +19,37 @@ from app.schemas import (
     SubmissionCreate,
     SubmissionOut,
 )
-from app.seed import seed_defaults
+from app.seed import ensure_order_id_column, seed_defaults
 from app.validation import ValidationError, validate_answers
+
+
+def _order_total_amount(answers: dict) -> float:
+    """Sum of (selling_price * quantity) for each product line. Handles both product/quantity and legacy name/quantity."""
+    total = 0.0
+    products = answers.get("products") or []
+    for item in products:
+        if not isinstance(item, dict):
+            continue
+        qty = item.get("quantity")
+        sp = item.get("selling_price")
+        if sp is not None and qty is not None:
+            try:
+                q = float(qty) if not isinstance(qty, (int, float)) else float(qty)
+                p = float(sp) if not isinstance(sp, (int, float)) else float(sp)
+                total += p * q
+            except (TypeError, ValueError):
+                pass
+    return round(total, 2)
+
+
+def _submission_to_out(s: Submission) -> SubmissionOut:
+    return SubmissionOut(
+        id=s.id,
+        order_id=s.order_id,
+        answers=s.answers,
+        created_at=s.created_at,
+        total_amount=_order_total_amount(s.answers or {}),
+    )
 
 
 def _compute_analytics(submissions: list[Submission]) -> dict:
@@ -50,10 +79,13 @@ def _compute_analytics(submissions: list[Submission]) -> dict:
             return 1.0 if qty.strip() else 1.0
         return 1.0
 
+    orders_with_totals = []
     for s in submissions:
         a = s.answers or {}
+        orders_with_totals.append({"order_id": s.order_id or "—", "total_amount": _order_total_amount(a)})
 
-        village = a.get("customer_village")
+        # Address: prefer new fields, fallback to legacy customer_village
+        village = a.get("village") or a.get("customer_village")
         if isinstance(village, str) and village.strip():
             key = norm(village).lower()
             village_counts[key] = village_counts.get(key, 0) + 1
@@ -63,7 +95,7 @@ def _compute_analytics(submissions: list[Submission]) -> dict:
             for item in products:
                 if not isinstance(item, dict):
                     continue
-                name = item.get("name")
+                name = item.get("product") or item.get("name")
                 qty = item.get("quantity")
                 item_fulfill = item.get("can_fulfill")
                 if item_fulfill is True:
@@ -101,6 +133,7 @@ def _compute_analytics(submissions: list[Submission]) -> dict:
         "top_villages": [{"village": v, "count": c} for v, c in top_villages],
         "top_products": [{"product": p, "count": c} for p, c in top_products],
         "product_fulfillment_qty": product_fulfillment,
+        "orders_with_totals": orders_with_totals,
     }
 
 
@@ -127,6 +160,7 @@ def root() -> RedirectResponse:
 @app.on_event("startup")
 def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_order_id_column(engine)
     with Session(engine) as db:
         seed_defaults(db)
 
@@ -176,11 +210,15 @@ def create_submission(
         for q in questions
     ]
 
-    submission = Submission(answers=payload.answers, form_snapshot={"questions": form_snapshot})
+    submission = Submission(
+        order_id=generate_order_id(),
+        answers=payload.answers,
+        form_snapshot={"questions": form_snapshot},
+    )
     db.add(submission)
     db.commit()
     db.refresh(submission)
-    return submission
+    return _submission_to_out(submission)
 
 
 # --- Admin endpoints (no auth in v1) ---
@@ -232,7 +270,8 @@ def admin_delete_question(question_id: str, _user: str = Depends(require_user), 
 
 @app.get("/api/admin/submissions", response_model=list[SubmissionOut])
 def admin_list_submissions(_user: str = Depends(require_user), db: Session = Depends(get_db)) -> list[SubmissionOut]:
-    return db.scalars(select(Submission).order_by(Submission.created_at.desc())).all()
+    rows = db.scalars(select(Submission).order_by(Submission.created_at.desc())).all()
+    return [_submission_to_out(s) for s in rows]
 
 
 @app.get("/api/admin/analytics")
