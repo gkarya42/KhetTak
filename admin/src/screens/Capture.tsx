@@ -6,7 +6,6 @@ type LineItem = {
   quantity: string;
   mrp: string | number;
   selling_price: string | number;
-  can_fulfill: boolean;
 };
 
 function requiredMissing(value: any): boolean {
@@ -42,9 +41,7 @@ export function CaptureScreen() {
       for (const q of f.questions) {
         if (q.type === "boolean") init[q.key] = false;
         if (q.type === "line_items")
-          init[q.key] = [
-            { product: "", quantity: "", mrp: "", selling_price: "", can_fulfill: false } satisfies LineItem,
-          ];
+          init[q.key] = [{ product: "", quantity: "", mrp: "", selling_price: "" } satisfies LineItem];
       }
       setAnswers((prev) => ({ ...init, ...prev }));
     } catch (e: any) {
@@ -256,21 +253,6 @@ export function CaptureScreen() {
                           }}
                         />
                       </div>
-                      <div style={{ minWidth: 120 }}>
-                        <div className="muted" style={{ marginBottom: 6 }}>Fulfill?</div>
-                        <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                          <input
-                            type="checkbox"
-                            checked={!!item.can_fulfill}
-                            onChange={(e) => {
-                              const cur = [...(((answers[q.key] ?? []) as LineItem[]) || [])];
-                              cur[idx] = { ...cur[idx], can_fulfill: e.target.checked };
-                              setAnswer(q.key, cur);
-                            }}
-                          />
-                          <span className="muted">{item.can_fulfill ? "Yes" : "No"}</span>
-                        </label>
-                      </div>
                     </div>
                   ))}
 
@@ -281,7 +263,7 @@ export function CaptureScreen() {
                       onClick={() =>
                         setAnswer(q.key, [
                           ...(((answers[q.key] ?? []) as LineItem[]) || []),
-                          { product: "", quantity: "", mrp: "", selling_price: "", can_fulfill: false },
+                          { product: "", quantity: "", mrp: "", selling_price: "" },
                         ])
                       }
                     >

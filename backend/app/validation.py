@@ -72,7 +72,4 @@ def validate_answers(
                         raise ValidationError(f"Each item in '{q.label}' needs selling price (non-negative number)")
                 except (TypeError, ValueError):
                     raise ValidationError(f"Each item in '{q.label}' needs selling price (number)")
-                can_fulfill = item.get("can_fulfill")
-                if not isinstance(can_fulfill, bool):
-                    raise ValidationError(f"Each item in '{q.label}' must include fulfill yes/no")
 

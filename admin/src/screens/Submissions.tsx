@@ -98,15 +98,17 @@ export function SubmissionsScreen() {
                 const productsText = productsArr
                   .map((p: any) => {
                     const name = `${p?.product || p?.name || ""}`.trim();
-                    const qty = p?.quantity ? ` ×${p.quantity}` : "";
+                    const requested = p?.quantity != null ? ` req:${p.quantity}` : "";
+                    const fulfilled = p?.fulfilled_quantity != null ? ` full:${p.fulfilled_quantity}` : "";
+                    const unfulfilled = p?.unfulfilled_quantity != null ? ` unfull:${p.unfulfilled_quantity}` : "";
+                    const status = p?.fulfillment_status ? ` status:${p.fulfillment_status}` : "";
                     const mrp = p?.mrp != null ? ` MRP:${p.mrp}` : "";
                     const sp = p?.selling_price != null ? ` SP:${p.selling_price}` : "";
-                    const fulfill = p?.can_fulfill === true ? " ✓" : p?.can_fulfill === false ? " ✗" : "";
                     const stock =
                       name && Object.prototype.hasOwnProperty.call(productStockByName, name)
                         ? ` stock:${productStockByName[name]}`
                         : "";
-                    return `${name}${qty}${mrp}${sp}${stock}${fulfill}`.trim();
+                    return `${name}${requested}${fulfilled}${unfulfilled}${status}${mrp}${sp}${stock}`.trim();
                   })
                   .filter(Boolean)
                   .join("; ");

@@ -44,7 +44,6 @@ type LineItem = {
   quantity: string;
   mrp: string | number;
   selling_price: string | number;
-  can_fulfill: boolean;
 };
 
 const GREEN = "#16A34A";
@@ -107,9 +106,7 @@ export default function App() {
       for (const q of f.questions) {
         if (q.type === "boolean") init[q.key] = false;
         if (q.type === "line_items")
-          init[q.key] = [
-            { product: "", quantity: "", mrp: "", selling_price: "", can_fulfill: false } satisfies LineItem,
-          ];
+          init[q.key] = [{ product: "", quantity: "", mrp: "", selling_price: "" } satisfies LineItem];
       }
       setAnswers((prev) => ({ ...init, ...prev }));
     } catch (e: any) {
@@ -405,17 +402,6 @@ export default function App() {
                               />
                             </View>
                           </View>
-                          <View style={styles.booleanRow}>
-                            <Text style={styles.muted}>Fulfill this item?</Text>
-                            <Switch
-                              value={!!item.can_fulfill}
-                              onValueChange={(v) => {
-                                const next = [...((answers[q.key] ?? []) as LineItem[])];
-                                next[index] = { ...next[index], can_fulfill: v };
-                                setAnswer(q.key, next);
-                              }}
-                            />
-                          </View>
                         </View>
                       )}
                     />
@@ -426,7 +412,7 @@ export default function App() {
                         onPress={() => {
                           const next = [
                             ...((answers[q.key] ?? []) as LineItem[]),
-                            { product: "", quantity: "", mrp: "", selling_price: "", can_fulfill: false },
+                                { product: "", quantity: "", mrp: "", selling_price: "" },
                           ];
                           setAnswer(q.key, next);
                         }}

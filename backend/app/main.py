@@ -27,13 +27,16 @@ from app.validation import ValidationError, validate_answers
 
 
 def _order_total_amount(answers: dict) -> float:
-    """Sum of (selling_price * quantity) for each product line. Handles both product/quantity and legacy name/quantity."""
+    """Sum of (selling_price * fulfilled_quantity) for each product line.
+
+    Falls back to quantity if fulfilled_quantity is missing (legacy data).
+    """
     total = 0.0
     products = answers.get("products") or []
     for item in products:
         if not isinstance(item, dict):
             continue
-        qty = item.get("quantity")
+        qty = item.get("fulfilled_quantity", item.get("quantity"))
         sp = item.get("selling_price")
         if sp is not None and qty is not None:
             try:
@@ -61,8 +64,8 @@ def _parse_quantity(value: object) -> float:
     return 0.0
 
 
-def _apply_fulfill_flags(db: Session, answers: dict) -> None:
-    """Set can_fulfill on each line item based on current stock vs ordered quantity."""
+def _apply_fulfill_quantities(db: Session, answers: dict) -> None:
+    """Set fulfilled_quantity, unfulfilled_quantity and fulfillment_status per line item based on stock."""
     products = answers.get("products") or []
     if not isinstance(products, list) or not products:
         return
@@ -85,9 +88,23 @@ def _apply_fulfill_flags(db: Session, answers: dict) -> None:
         if not isinstance(name, str) or not name.strip():
             continue
         qty_raw = item.get("quantity")
-        qty = _parse_quantity(qty_raw)
+        requested = _parse_quantity(qty_raw)
         current_stock = stock_by_name.get(name, 0.0)
-        item["can_fulfill"] = bool(qty <= current_stock and qty > 0)
+        fulfilled = min(requested, current_stock) if requested > 0 else 0.0
+        unfulfilled = max(requested - fulfilled, 0.0) if requested > 0 else 0.0
+        item["fulfilled_quantity"] = fulfilled
+        item["unfulfilled_quantity"] = unfulfilled
+        # Derive human-readable fulfillment status: Yes | No | Partially
+        status: str
+        if requested <= 0:
+            status = "No"
+        elif fulfilled >= requested:
+            status = "Yes"
+        elif fulfilled <= 0:
+            status = "No"
+        else:
+            status = "Partially"
+        item["fulfillment_status"] = status
 
 
 def _submission_to_out(s: Submission) -> SubmissionOut:
@@ -144,20 +161,22 @@ def _compute_analytics(submissions: list[Submission]) -> dict:
                 if not isinstance(item, dict):
                     continue
                 name = item.get("product") or item.get("name")
-                qty = item.get("quantity")
-                item_fulfill = item.get("can_fulfill")
-                if item_fulfill is True:
+                requested = item.get("quantity")
+                fulfilled = item.get("fulfilled_quantity")
+                unfulfilled = item.get("unfulfilled_quantity")
+                status = item.get("fulfillment_status")
+                if status == "Yes":
                     fulfill_yes += 1
-                elif item_fulfill is False:
+                elif status in {"No", "Partially"}:
                     fulfill_no += 1
                 if isinstance(name, str) and name.strip():
                     p = norm(name).lower()
-                    q = parse_qty(qty)
-                    product_total_qty[p] = product_total_qty.get(p, 0.0) + q
-                    if item_fulfill is True:
-                        product_fulfilled_qty[p] = product_fulfilled_qty.get(p, 0.0) + q
-                    elif item_fulfill is False:
-                        product_unfulfilled_qty[p] = product_unfulfilled_qty.get(p, 0.0) + q
+                    total_q = parse_qty(requested)
+                    fulfilled_q = parse_qty(fulfilled)
+                    unfulfilled_q = parse_qty(unfulfilled)
+                    product_total_qty[p] = product_total_qty.get(p, 0.0) + total_q
+                    product_fulfilled_qty[p] = product_fulfilled_qty.get(p, 0.0) + fulfilled_q
+                    product_unfulfilled_qty[p] = product_unfulfilled_qty.get(p, 0.0) + unfulfilled_q
 
     top_villages = sorted(village_counts.items(), key=lambda x: x[1], reverse=True)[:10]
     top_products = sorted(product_total_qty.items(), key=lambda x: x[1], reverse=True)[:10]
@@ -256,9 +275,9 @@ def create_submission(
     db: Session = Depends(get_db),
 ) -> SubmissionOut:
     questions = db.scalars(select(Question).order_by(Question.order.asc(), Question.created_at.asc())).all()
-    # Ensure can_fulfill is set based on current stock vs ordered quantity
     answers = payload.answers or {}
-    _apply_fulfill_flags(db, answers)
+    # Compute fulfilled/unfulfilled quantities and can_fulfill from stock and requested quantity
+    _apply_fulfill_quantities(db, answers)
     allowed_products = _active_product_names(db)
     try:
         validate_answers(questions, answers, allowed_product_names=allowed_products)
@@ -277,7 +296,7 @@ def create_submission(
         for q in questions
     ]
 
-    # Decrement product stock based on quantities in this order
+    # Decrement product stock based on fulfilled quantities in this order
     products = answers.get("products") or []
     qty_by_name: dict[str, float] = {}
     if isinstance(products, list):
@@ -285,9 +304,9 @@ def create_submission(
             if not isinstance(item, dict):
                 continue
             name = item.get("product") or item.get("name")
-            qty_raw = item.get("quantity")
+            fulfilled = item.get("fulfilled_quantity")
             if isinstance(name, str) and name.strip():
-                qty = _parse_quantity(qty_raw)
+                qty = float(fulfilled) if isinstance(fulfilled, (int, float)) else _parse_quantity(fulfilled)
                 if qty > 0:
                     qty_by_name[name] = qty_by_name.get(name, 0.0) + qty
     if qty_by_name:
