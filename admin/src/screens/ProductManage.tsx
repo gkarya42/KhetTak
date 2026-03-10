@@ -10,7 +10,7 @@ export function ProductsScreen() {
   const [name, setName] = useState("");
   const [defaultMrp, setDefaultMrp] = useState("");
   const [defaultSellingPrice, setDefaultSellingPrice] = useState("");
-  const [order, setOrder] = useState("");
+  const [stock, setStock] = useState("");
   const [active, setActive] = useState(true);
   const [showNew, setShowNew] = useState(false);
 
@@ -36,7 +36,7 @@ export function ProductsScreen() {
     setName(p.name);
     setDefaultMrp(String(p.default_mrp));
     setDefaultSellingPrice(String(p.default_selling_price));
-    setOrder(String(p.order));
+    setStock(String(p.stock));
     setActive(p.active);
     setShowNew(false);
   }
@@ -46,7 +46,7 @@ export function ProductsScreen() {
     setName("");
     setDefaultMrp("");
     setDefaultSellingPrice("");
-    setOrder("");
+    setStock("");
     setActive(true);
     setShowNew(true);
   }
@@ -59,13 +59,17 @@ export function ProductsScreen() {
   async function save() {
     const mrp = parseFloat(defaultMrp);
     const sp = parseFloat(defaultSellingPrice);
-    const ord = parseInt(order, 10);
+    const st = parseInt(stock, 10);
     if (!name.trim()) {
       setError("Name is required");
       return;
     }
     if (Number.isNaN(mrp) || mrp < 0 || Number.isNaN(sp) || sp < 0) {
       setError("MRP and selling price must be non-negative numbers");
+      return;
+    }
+    if (!Number.isNaN(st) && st < 0) {
+      setError("Stock cannot be negative");
       return;
     }
     setSaving(true);
@@ -76,17 +80,23 @@ export function ProductsScreen() {
           name: name.trim(),
           default_mrp: mrp,
           default_selling_price: sp,
-          order: Number.isNaN(ord) ? 0 : ord,
+          stock: Number.isNaN(st) ? 0 : st,
           active,
         });
-        setItems((prev) => prev.map((p) => (p.id === editingId ? { ...p, name: name.trim(), default_mrp: mrp, default_selling_price: sp, order: Number.isNaN(ord) ? 0 : ord, active } : p)));
+        setItems((prev) =>
+          prev.map((p) =>
+            p.id === editingId
+              ? { ...p, name: name.trim(), default_mrp: mrp, default_selling_price: sp, stock: Number.isNaN(st) ? 0 : st, active }
+              : p,
+          ),
+        );
         cancelEdit();
       } else {
         const created = await api.createProduct({
           name: name.trim(),
           default_mrp: mrp,
           default_selling_price: sp,
-          order: Number.isNaN(ord) ? 0 : ord,
+          stock: Number.isNaN(st) ? 0 : st,
           active,
         });
         setItems((prev) => [...prev, created]);
@@ -160,8 +170,8 @@ export function ProductsScreen() {
             </div>
             <div className="row">
               <div>
-                <div className="muted" style={{ marginBottom: 4 }}>Order</div>
-                <input className="input" type="number" value={order} onChange={(e) => setOrder(e.target.value)} placeholder="0" />
+                <div className="muted" style={{ marginBottom: 4 }}>Stock</div>
+                <input className="input" type="number" min={0} value={stock} onChange={(e) => setStock(e.target.value)} placeholder="0" />
               </div>
               <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
@@ -192,10 +202,10 @@ export function ProductsScreen() {
           <table className="table">
             <thead>
               <tr>
-                <th>Order</th>
                 <th>Name</th>
                 <th>Default MRP</th>
                 <th>Default selling price</th>
+                <th>Stock</th>
                 <th>Active</th>
                 <th></th>
               </tr>
@@ -203,10 +213,10 @@ export function ProductsScreen() {
             <tbody>
               {items.map((p) => (
                 <tr key={p.id}>
-                  <td>{p.order}</td>
                   <td style={{ fontWeight: 700 }}>{p.name}</td>
                   <td>{p.default_mrp}</td>
                   <td>{p.default_selling_price}</td>
+                  <td>{p.stock}</td>
                   <td>{p.active ? "Yes" : "No"}</td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     <button className="btn" onClick={() => startEdit(p)} disabled={saving}>

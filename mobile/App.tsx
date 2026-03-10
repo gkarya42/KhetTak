@@ -35,7 +35,7 @@ type Product = {
   name: string;
   default_mrp: number;
   default_selling_price: number;
-  order: number;
+  stock: number;
   active: boolean;
 };
 

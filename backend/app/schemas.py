@@ -61,7 +61,7 @@ class ProductBase(BaseModel):
     name: str
     default_mrp: float = 0.0
     default_selling_price: float = 0.0
-    order: int = 0
+    stock: int = 0
     active: bool = True
 
 
@@ -73,7 +73,7 @@ class ProductUpdate(BaseModel):
     name: str | None = None
     default_mrp: float | None = None
     default_selling_price: float | None = None
-    order: int | None = None
+    stock: int | None = None
     active: bool | None = None
 
 

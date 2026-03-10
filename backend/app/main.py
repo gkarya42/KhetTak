@@ -22,7 +22,7 @@ from app.schemas import (
     SubmissionCreate,
     SubmissionOut,
 )
-from app.seed import ensure_order_id_column, seed_defaults, seed_products
+from app.seed import ensure_order_id_column, ensure_product_columns, seed_defaults, seed_products
 from app.validation import ValidationError, validate_answers
 
 
@@ -43,6 +43,51 @@ def _order_total_amount(answers: dict) -> float:
             except (TypeError, ValueError):
                 pass
     return round(total, 2)
+
+
+def _parse_quantity(value: object) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        import re
+
+        m = re.search(r"(-?\d+(?:\.\d+)?)", value)
+        if m:
+            try:
+                return float(m.group(1))
+            except ValueError:
+                return 0.0
+        return 0.0
+    return 0.0
+
+
+def _apply_fulfill_flags(db: Session, answers: dict) -> None:
+    """Set can_fulfill on each line item based on current stock vs ordered quantity."""
+    products = answers.get("products") or []
+    if not isinstance(products, list) or not products:
+        return
+    # Collect unique product names from answers
+    names: set[str] = set()
+    for item in products:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("product") or item.get("name")
+        if isinstance(name, str) and name.strip():
+            names.add(name.strip())
+    if not names:
+        return
+    db_products = db.scalars(select(Product).where(Product.name.in_(list(names)))).all()
+    stock_by_name: dict[str, float] = {p.name: float(p.stock or 0) for p in db_products}
+    for item in products:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("product") or item.get("name")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        qty_raw = item.get("quantity")
+        qty = _parse_quantity(qty_raw)
+        current_stock = stock_by_name.get(name, 0.0)
+        item["can_fulfill"] = bool(qty <= current_stock and qty > 0)
 
 
 def _submission_to_out(s: Submission) -> SubmissionOut:
@@ -164,6 +209,7 @@ def root() -> RedirectResponse:
 def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
     ensure_order_id_column(engine)
+    ensure_product_columns(engine)
     with Session(engine) as db:
         seed_defaults(db)
         seed_products(db)
@@ -191,7 +237,7 @@ def get_form(
 
 
 def _active_product_names(db: Session) -> list[str]:
-    return [p.name for p in db.scalars(select(Product).where(Product.active).order_by(Product.order, Product.name)).all()]
+    return [p.name for p in db.scalars(select(Product).where(Product.active).order_by(Product.name)).all()]
 
 
 @app.get("/api/products", response_model=list[ProductOut])
@@ -200,7 +246,7 @@ def list_products(
     db: Session = Depends(get_db),
 ) -> list[ProductOut]:
     """Active products for the capture form dropdown (with default MRP/selling price)."""
-    return db.scalars(select(Product).where(Product.active).order_by(Product.order, Product.name)).all()
+    return db.scalars(select(Product).where(Product.active).order_by(Product.name)).all()
 
 
 @app.post("/api/submissions", response_model=SubmissionOut)
@@ -210,9 +256,12 @@ def create_submission(
     db: Session = Depends(get_db),
 ) -> SubmissionOut:
     questions = db.scalars(select(Question).order_by(Question.order.asc(), Question.created_at.asc())).all()
+    # Ensure can_fulfill is set based on current stock vs ordered quantity
+    answers = payload.answers or {}
+    _apply_fulfill_flags(db, answers)
     allowed_products = _active_product_names(db)
     try:
-        validate_answers(questions, payload.answers, allowed_product_names=allowed_products)
+        validate_answers(questions, answers, allowed_product_names=allowed_products)
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -228,9 +277,31 @@ def create_submission(
         for q in questions
     ]
 
+    # Decrement product stock based on quantities in this order
+    products = answers.get("products") or []
+    qty_by_name: dict[str, float] = {}
+    if isinstance(products, list):
+        for item in products:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("product") or item.get("name")
+            qty_raw = item.get("quantity")
+            if isinstance(name, str) and name.strip():
+                qty = _parse_quantity(qty_raw)
+                if qty > 0:
+                    qty_by_name[name] = qty_by_name.get(name, 0.0) + qty
+    if qty_by_name:
+        db_products = db.scalars(select(Product).where(Product.name.in_(list(qty_by_name.keys())))).all()
+        for p in db_products:
+            used = qty_by_name.get(p.name, 0.0)
+            if used > 0:
+                current = p.stock or 0
+                new_stock = current - used
+                p.stock = int(new_stock) if new_stock > 0 else 0
+
     submission = Submission(
         order_id=generate_order_id(),
-        answers=payload.answers,
+        answers=answers,
         form_snapshot={"questions": form_snapshot},
     )
     db.add(submission)
@@ -288,7 +359,7 @@ def admin_delete_question(question_id: str, _user: str = Depends(require_user), 
 
 @app.get("/api/admin/products", response_model=list[ProductOut])
 def admin_list_products(_user: str = Depends(require_user), db: Session = Depends(get_db)) -> list[ProductOut]:
-    return db.scalars(select(Product).order_by(Product.order, Product.name)).all()
+    return db.scalars(select(Product).order_by(Product.name)).all()
 
 
 @app.post("/api/admin/products", response_model=ProductOut)

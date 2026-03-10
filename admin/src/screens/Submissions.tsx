@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { api, type Submission } from "../api";
+import { api, type Product, type Submission } from "../api";
 
 function formatDate(iso: string): string {
   try {
@@ -11,17 +11,27 @@ function formatDate(iso: string): string {
 
 export function SubmissionsScreen() {
   const [items, setItems] = useState<Submission[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const rows = useMemo(() => items, [items]);
 
+  const productStockByName = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of products) {
+      map[p.name] = p.stock;
+    }
+    return map;
+  }, [products]);
+
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.listSubmissions();
-      setItems(data);
+      const [subs, prods] = await Promise.all([api.listSubmissions(), api.listProductsAdmin()]);
+      setItems(subs);
+      setProducts(prods);
     } catch (e: any) {
       setError(e?.message || "Failed to load submissions");
     } finally {
@@ -77,22 +87,26 @@ export function SubmissionsScreen() {
                 <th>District</th>
                 <th>City</th>
                 <th>Village</th>
-                <th>Products</th>
+                <th>Products (with stock)</th>
                 <th>Total</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((s) => {
                 const a = s.answers || {};
-                const products = Array.isArray(a.products) ? a.products : [];
-                const productsText = products
+                const productsArr = Array.isArray(a.products) ? a.products : [];
+                const productsText = productsArr
                   .map((p: any) => {
                     const name = `${p?.product || p?.name || ""}`.trim();
                     const qty = p?.quantity ? ` ×${p.quantity}` : "";
                     const mrp = p?.mrp != null ? ` MRP:${p.mrp}` : "";
                     const sp = p?.selling_price != null ? ` SP:${p.selling_price}` : "";
                     const fulfill = p?.can_fulfill === true ? " ✓" : p?.can_fulfill === false ? " ✗" : "";
-                    return `${name}${qty}${mrp}${sp}${fulfill}`.trim();
+                    const stock =
+                      name && Object.prototype.hasOwnProperty.call(productStockByName, name)
+                        ? ` stock:${productStockByName[name]}`
+                        : "";
+                    return `${name}${qty}${mrp}${sp}${stock}${fulfill}`.trim();
                   })
                   .filter(Boolean)
                   .join("; ");

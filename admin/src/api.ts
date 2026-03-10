@@ -62,7 +62,7 @@ export type Product = {
   name: string;
   default_mrp: number;
   default_selling_price: number;
-  order: number;
+  stock: number;
   active: boolean;
   created_at: string;
   updated_at?: string | null;
@@ -106,7 +106,7 @@ export const api = {
   listProductsAdmin(): Promise<Product[]> {
     return http<Product[]>("/api/admin/products");
   },
-  createProduct(p: { name: string; default_mrp?: number; default_selling_price?: number; order?: number; active?: boolean }): Promise<Product> {
+  createProduct(p: { name: string; default_mrp?: number; default_selling_price?: number; stock?: number; active?: boolean }): Promise<Product> {
     return http<Product>("/api/admin/products", { method: "POST", body: JSON.stringify(p) });
   },
   updateProduct(id: string, p: Partial<Product>): Promise<Product> {

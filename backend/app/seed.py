@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 from app.models import Product, Question
 
 DEFAULT_PRODUCTS: list[dict] = [
-    {"name": "Corn Seeds", "default_mrp": 0.0, "default_selling_price": 0.0, "order": 10},
-    {"name": "Potato Seeds", "default_mrp": 0.0, "default_selling_price": 0.0, "order": 20},
-    {"name": "Pesticides", "default_mrp": 0.0, "default_selling_price": 0.0, "order": 30},
+    {"name": "Corn Seeds", "default_mrp": 0.0, "default_selling_price": 0.0, "stock": 100},
+    {"name": "Potato Seeds", "default_mrp": 0.0, "default_selling_price": 0.0, "stock": 100},
+    {"name": "Pesticides", "default_mrp": 0.0, "default_selling_price": 0.0, "stock": 100},
 ]
 
 DEFAULT_QUESTIONS: list[dict] = [
@@ -129,5 +129,21 @@ def ensure_order_id_column(engine):  # noqa: ANN001
         return
     with engine.connect() as conn:
         conn.execute(text("ALTER TABLE submissions ADD COLUMN order_id VARCHAR(20) UNIQUE"))
+        conn.commit()
+
+
+def ensure_product_columns(engine):  # noqa: ANN001
+    """Ensure products table has stock column and no legacy order column."""
+    from sqlalchemy import inspect
+
+    insp = inspect(engine)
+    if "products" not in insp.get_table_names():
+        return
+    cols = [c["name"] for c in insp.get_columns("products")]
+    with engine.connect() as conn:
+        if "stock" not in cols:
+            conn.execute(text("ALTER TABLE products ADD COLUMN stock INTEGER DEFAULT 0"))
+        if "order" in cols:
+            conn.execute(text('ALTER TABLE products DROP COLUMN "order"'))
         conn.commit()
 
