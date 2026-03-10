@@ -1,12 +1,14 @@
 import React, { useMemo } from "react";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api } from "./api";
-import { CaptureScreen } from "./screens/Capture";
-import { DashboardScreen } from "./screens/Dashboard";
-import { LoginScreen } from "./screens/Login";
-import { ProductsScreen } from "./screens/Products";
-import { QuestionsScreen } from "./screens/Questions";
-import { SubmissionsScreen } from "./screens/Submissions";
+import {
+  CaptureScreen,
+  DashboardScreen,
+  LoginScreen,
+  ProductsScreen,
+  QuestionsScreen,
+  SubmissionsScreen,
+} from "./screens";
 
 function Nav() {
   const navigate = useNavigate();
