@@ -4,7 +4,7 @@ import { api } from "./api";
 import { CaptureScreen } from "./screens/Capture";
 import { DashboardScreen } from "./screens/Dashboard";
 import { LoginScreen } from "./screens/Login";
-import { ProductsScreen } from "./screens/Products.tsx";
+import { ProductsScreen } from "./screens/ProductManage";
 import { QuestionsScreen } from "./screens/Questions";
 import { SubmissionsScreen } from "./screens/Submissions";
 
