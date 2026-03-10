@@ -109,7 +109,8 @@ def seed_defaults(db: Session) -> None:
 
 
 def seed_products(db: Session) -> None:
-    existing_names = {p.name for p in db.scalars(select(Product.name)).all()}
+    # select(Product.name) returns plain strings, not Product instances
+    existing_names = set(db.scalars(select(Product.name)).all())
     for d in DEFAULT_PRODUCTS:
         if d["name"] not in existing_names:
             db.add(Product(**d))
