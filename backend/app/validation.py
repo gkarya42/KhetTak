@@ -12,7 +12,11 @@ def _is_missing(value: Any) -> bool:
     return value is None or (isinstance(value, str) and not value.strip())
 
 
-def validate_answers(questions: Iterable[Question], answers: dict[str, Any]) -> None:
+def validate_answers(
+    questions: Iterable[Question],
+    answers: dict[str, Any],
+    allowed_product_names: list[str] | None = None,
+) -> None:
     questions_by_key = {q.key: q for q in questions}
 
     for q in questions_by_key.values():
@@ -33,13 +37,16 @@ def validate_answers(questions: Iterable[Question], answers: dict[str, Any]) -> 
         if q.type == "line_items":
             if not isinstance(value, list) or len(value) == 0:
                 raise ValidationError(f"Field '{q.label}' must be a non-empty list")
-            cfg = q.config or {}
-            allowed_products = list(cfg.get("product_options") or [])
-            if not allowed_products and cfg.get("fields"):
-                for f in cfg["fields"]:
-                    if isinstance(f, dict) and f.get("key") == "product":
-                        allowed_products = list(f.get("options") or [])
-                        break
+            # Use DB-driven list if provided, else fallback to question config
+            allowed_products = list(allowed_product_names) if allowed_product_names is not None else []
+            if not allowed_products:
+                cfg = q.config or {}
+                allowed_products = list(cfg.get("product_options") or [])
+                if not allowed_products and cfg.get("fields"):
+                    for f in cfg["fields"]:
+                        if isinstance(f, dict) and f.get("key") == "product":
+                            allowed_products = list(f.get("options") or [])
+                            break
             for idx, item in enumerate(value):
                 if not isinstance(item, dict):
                     raise ValidationError(f"Item {idx + 1} in '{q.label}' must be an object")

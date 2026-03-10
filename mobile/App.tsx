@@ -30,7 +30,14 @@ type Question = {
 
 type Form = { questions: Question[] };
 
-const PRODUCT_OPTIONS = ["Corn Seeds", "Potato Seeds", "Pesticides"];
+type Product = {
+  id: string;
+  name: string;
+  default_mrp: number;
+  default_selling_price: number;
+  order: number;
+  active: boolean;
+};
 
 type LineItem = {
   product: string;
@@ -75,6 +82,7 @@ export default function App() {
   const [password, setPassword] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [form, setForm] = useState<Form | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -88,8 +96,12 @@ export default function App() {
   async function loadForm() {
     setLoading(true);
     try {
-      const f = await http<Form>("/api/form", token);
+      const [f, prods] = await Promise.all([
+        http<Form>("/api/form", token),
+        http<Product[]>("/api/products", token),
+      ]);
       setForm(f);
+      setProducts(prods);
 
       const init: Record<string, any> = {};
       for (const q of f.questions) {
@@ -324,20 +336,25 @@ export default function App() {
                         <View style={{ gap: 8 }}>
                           <Text style={styles.muted}>Product</Text>
                           <View style={styles.row}>
-                            {PRODUCT_OPTIONS.map((opt) => (
+                            {products.map((opt) => (
                               <TouchableOpacity
-                                key={opt}
+                                key={opt.id}
                                 style={[
                                   styles.smallBtn,
-                                  (item.product ?? "") === opt && { backgroundColor: "#DCFCE7", borderColor: GREEN },
+                                  (item.product ?? "") === opt.name && { backgroundColor: "#DCFCE7", borderColor: GREEN },
                                 ]}
                                 onPress={() => {
                                   const next = [...((answers[q.key] ?? []) as LineItem[])];
-                                  next[index] = { ...next[index], product: opt };
+                                  next[index] = {
+                                    ...next[index],
+                                    product: opt.name,
+                                    mrp: opt.default_mrp,
+                                    selling_price: opt.default_selling_price,
+                                  };
                                   setAnswer(q.key, next);
                                 }}
                               >
-                                <Text style={styles.smallBtnText}>{opt}</Text>
+                                <Text style={styles.smallBtnText}>{opt.name}</Text>
                               </TouchableOpacity>
                             ))}
                           </View>

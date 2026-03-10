@@ -8,18 +8,21 @@ from sqlalchemy.orm import Session
 from app.auth import create_access_token, require_user
 from app.config import settings
 from app.db import Base, engine, get_db
-from app.models import Question, Submission, generate_order_id
+from app.models import Product, Question, Submission, generate_order_id
 from app.schemas import (
     FormOut,
     LoginRequest,
     LoginResponse,
+    ProductCreate,
+    ProductOut,
+    ProductUpdate,
     QuestionCreate,
     QuestionOut,
     QuestionUpdate,
     SubmissionCreate,
     SubmissionOut,
 )
-from app.seed import ensure_order_id_column, seed_defaults
+from app.seed import ensure_order_id_column, seed_defaults, seed_products
 from app.validation import ValidationError, validate_answers
 
 
@@ -163,6 +166,7 @@ def on_startup() -> None:
     ensure_order_id_column(engine)
     with Session(engine) as db:
         seed_defaults(db)
+        seed_products(db)
 
 
 @app.get("/health")
@@ -186,6 +190,19 @@ def get_form(
     return FormOut(questions=questions)
 
 
+def _active_product_names(db: Session) -> list[str]:
+    return [p.name for p in db.scalars(select(Product).where(Product.active).order_by(Product.order, Product.name)).all()]
+
+
+@app.get("/api/products", response_model=list[ProductOut])
+def list_products(
+    _user: str = Depends(require_user),
+    db: Session = Depends(get_db),
+) -> list[ProductOut]:
+    """Active products for the capture form dropdown (with default MRP/selling price)."""
+    return db.scalars(select(Product).where(Product.active).order_by(Product.order, Product.name)).all()
+
+
 @app.post("/api/submissions", response_model=SubmissionOut)
 def create_submission(
     payload: SubmissionCreate,
@@ -193,8 +210,9 @@ def create_submission(
     db: Session = Depends(get_db),
 ) -> SubmissionOut:
     questions = db.scalars(select(Question).order_by(Question.order.asc(), Question.created_at.asc())).all()
+    allowed_products = _active_product_names(db)
     try:
-        validate_answers(questions, payload.answers)
+        validate_answers(questions, payload.answers, allowed_product_names=allowed_products)
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -264,6 +282,50 @@ def admin_delete_question(question_id: str, _user: str = Depends(require_user), 
     if not q:
         raise HTTPException(status_code=404, detail="Question not found")
     db.delete(q)
+    db.commit()
+    return {"deleted": True}
+
+
+@app.get("/api/admin/products", response_model=list[ProductOut])
+def admin_list_products(_user: str = Depends(require_user), db: Session = Depends(get_db)) -> list[ProductOut]:
+    return db.scalars(select(Product).order_by(Product.order, Product.name)).all()
+
+
+@app.post("/api/admin/products", response_model=ProductOut)
+def admin_create_product(
+    payload: ProductCreate, _user: str = Depends(require_user), db: Session = Depends(get_db)
+) -> ProductOut:
+    exists = db.scalar(select(Product).where(Product.name == payload.name))
+    if exists:
+        raise HTTPException(status_code=409, detail="Product name already exists")
+    p = Product(**payload.model_dump())
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return p
+
+
+@app.put("/api/admin/products/{product_id}", response_model=ProductOut)
+def admin_update_product(
+    product_id: str, payload: ProductUpdate, _user: str = Depends(require_user), db: Session = Depends(get_db)
+) -> ProductOut:
+    p = db.get(Product, product_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+    updates = payload.model_dump(exclude_unset=True)
+    for k, v in updates.items():
+        setattr(p, k, v)
+    db.commit()
+    db.refresh(p)
+    return p
+
+
+@app.delete("/api/admin/products/{product_id}")
+def admin_delete_product(product_id: str, _user: str = Depends(require_user), db: Session = Depends(get_db)) -> dict:
+    p = db.get(Product, product_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+    db.delete(p)
     db.commit()
     return {"deleted": True}
 

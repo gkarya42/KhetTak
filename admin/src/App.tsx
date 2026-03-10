@@ -4,6 +4,7 @@ import { api } from "./api";
 import { CaptureScreen } from "./screens/Capture";
 import { DashboardScreen } from "./screens/Dashboard";
 import { LoginScreen } from "./screens/Login";
+import { ProductsScreen } from "./screens/Products";
 import { QuestionsScreen } from "./screens/Questions";
 import { SubmissionsScreen } from "./screens/Submissions";
 
@@ -17,6 +18,7 @@ function Nav() {
       submissions: path.startsWith("/submissions"),
       dashboard: path.startsWith("/dashboard"),
       questions: path.startsWith("/questions"),
+      products: path.startsWith("/products"),
     }),
     [path],
   );
@@ -58,6 +60,9 @@ function Nav() {
           </Link>
           <Link className={`btn ${active.questions ? "btnPrimary" : ""}`} to="/questions">
             Questions
+          </Link>
+          <Link className={`btn ${active.products ? "btnPrimary" : ""}`} to="/products">
+            Products
           </Link>
         </div>
       </div>
@@ -108,6 +113,15 @@ function AppRoutes() {
           <RequireAuth>
             <Nav />
             <QuestionsScreen />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/products"
+        element={
+          <RequireAuth>
+            <Nav />
+            <ProductsScreen />
           </RequireAuth>
         }
       />

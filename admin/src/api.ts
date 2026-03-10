@@ -57,6 +57,17 @@ export type Submission = {
   total_amount?: number | null;
 };
 
+export type Product = {
+  id: string;
+  name: string;
+  default_mrp: number;
+  default_selling_price: number;
+  order: number;
+  active: boolean;
+  created_at: string;
+  updated_at?: string | null;
+};
+
 export const api = {
   async login(username: string, password: string): Promise<string> {
     const data = await http<{ access_token: string; token_type: string }>("/api/auth/login", {
@@ -87,6 +98,22 @@ export const api = {
   },
   getForm(): Promise<{ questions: Question[] }> {
     return http<{ questions: Question[] }>("/api/form");
+  },
+  /** Active products for capture form dropdown (with default MRP / selling price). */
+  listProducts(): Promise<Product[]> {
+    return http<Product[]>("/api/products");
+  },
+  listProductsAdmin(): Promise<Product[]> {
+    return http<Product[]>("/api/admin/products");
+  },
+  createProduct(p: { name: string; default_mrp?: number; default_selling_price?: number; order?: number; active?: boolean }): Promise<Product> {
+    return http<Product>("/api/admin/products", { method: "POST", body: JSON.stringify(p) });
+  },
+  updateProduct(id: string, p: Partial<Product>): Promise<Product> {
+    return http<Product>(`/api/admin/products/${id}`, { method: "PUT", body: JSON.stringify(p) });
+  },
+  deleteProduct(id: string): Promise<{ deleted: boolean }> {
+    return http<{ deleted: boolean }>(`/api/admin/products/${id}`, { method: "DELETE" });
   },
   submitAnswers(answers: Record<string, any>): Promise<Submission> {
     return http<Submission>("/api/submissions", { method: "POST", body: JSON.stringify({ answers }) });

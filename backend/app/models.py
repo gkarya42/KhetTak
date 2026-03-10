@@ -33,6 +33,22 @@ class Question(Base):
     )
 
 
+class Product(Base):
+    __tablename__ = "products"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    default_mrp: Mapped[float] = mapped_column(default=0.0)
+    default_selling_price: Mapped[float] = mapped_column(default=0.0)
+    order: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class Submission(Base):
     __tablename__ = "submissions"
 

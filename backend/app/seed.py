@@ -1,9 +1,13 @@
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app.models import Question
+from app.models import Product, Question
 
-PRODUCT_OPTIONS = ["Corn Seeds", "Potato Seeds", "Pesticides"]
+DEFAULT_PRODUCTS: list[dict] = [
+    {"name": "Corn Seeds", "default_mrp": 0.0, "default_selling_price": 0.0, "order": 10},
+    {"name": "Potato Seeds", "default_mrp": 0.0, "default_selling_price": 0.0, "order": 20},
+    {"name": "Pesticides", "default_mrp": 0.0, "default_selling_price": 0.0, "order": 30},
+]
 
 DEFAULT_QUESTIONS: list[dict] = [
     {
@@ -62,9 +66,8 @@ DEFAULT_QUESTIONS: list[dict] = [
         "order": 40,
         "config": {
             "item_label": "Product",
-            "product_options": PRODUCT_OPTIONS,
             "fields": [
-                {"key": "product", "label": "Product", "type": "select", "options": PRODUCT_OPTIONS, "required": True},
+                {"key": "product", "label": "Product", "type": "select", "required": True},
                 {"key": "quantity", "label": "Quantity", "type": "text", "required": True},
                 {"key": "mrp", "label": "MRP", "type": "number", "required": True},
                 {"key": "selling_price", "label": "Selling price", "type": "number", "required": True},
@@ -102,6 +105,15 @@ def seed_defaults(db: Session) -> None:
         if legacy:
             db.delete(legacy)
 
+    db.commit()
+
+
+def seed_products(db: Session) -> None:
+    existing_names = {p.name for p in db.scalars(select(Product.name)).all()}
+    for d in DEFAULT_PRODUCTS:
+        if d["name"] not in existing_names:
+            db.add(Product(**d))
+            existing_names.add(d["name"])
     db.commit()
 
 

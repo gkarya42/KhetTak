@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { api, type Question } from "../api";
-
-const PRODUCT_OPTIONS = ["Corn Seeds", "Potato Seeds", "Pesticides"];
+import { api, type Product, type Question } from "../api";
 
 type LineItem = {
   product: string;
@@ -20,6 +18,7 @@ function requiredMissing(value: any): boolean {
 
 export function CaptureScreen() {
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,8 +35,9 @@ export function CaptureScreen() {
     setError(null);
     setOkMsg(null);
     try {
-      const f = await api.getForm();
+      const [f, prods] = await Promise.all([api.getForm(), api.listProducts()]);
       setQuestions(f.questions);
+      setProducts(prods);
       const init: Record<string, any> = {};
       for (const q of f.questions) {
         if (q.type === "boolean") init[q.key] = false;
@@ -194,13 +194,20 @@ export function CaptureScreen() {
                           value={(item.product ?? "").toString()}
                           onChange={(e) => {
                             const cur = [...(((answers[q.key] ?? []) as LineItem[]) || [])];
-                            cur[idx] = { ...cur[idx], product: e.target.value };
+                            const name = e.target.value;
+                            const prod = products.find((p) => p.name === name);
+                            cur[idx] = {
+                              ...cur[idx],
+                              product: name,
+                              mrp: prod ? prod.default_mrp : cur[idx].mrp,
+                              selling_price: prod ? prod.default_selling_price : cur[idx].selling_price,
+                            };
                             setAnswer(q.key, cur);
                           }}
                         >
                           <option value="">Select</option>
-                          {PRODUCT_OPTIONS.map((opt) => (
-                            <option key={opt} value={opt}>{opt}</option>
+                          {products.map((p) => (
+                            <option key={p.id} value={p.name}>{p.name}</option>
                           ))}
                         </select>
                       </div>

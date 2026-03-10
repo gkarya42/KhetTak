@@ -57,6 +57,35 @@ class SubmissionOut(BaseModel):
         from_attributes = True
 
 
+class ProductBase(BaseModel):
+    name: str
+    default_mrp: float = 0.0
+    default_selling_price: float = 0.0
+    order: int = 0
+    active: bool = True
+
+
+class ProductCreate(ProductBase):
+    pass
+
+
+class ProductUpdate(BaseModel):
+    name: str | None = None
+    default_mrp: float | None = None
+    default_selling_price: float | None = None
+    order: int | None = None
+    active: bool | None = None
+
+
+class ProductOut(ProductBase):
+    id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
 class LoginRequest(BaseModel):
     username: str
     password: str
