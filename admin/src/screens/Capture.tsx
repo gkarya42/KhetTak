@@ -207,7 +207,9 @@ export function CaptureScreen() {
                         >
                           <option value="">Select</option>
                           {products.map((p) => (
-                            <option key={p.id} value={p.name}>{p.name}</option>
+                            <option key={p.id} value={p.name}>
+                              {p.name} {typeof p.stock === "number" ? `(stock: ${p.stock})` : ""}
+                            </option>
                           ))}
                         </select>
                       </div>

@@ -334,7 +334,7 @@ export default function App() {
                       scrollEnabled={false}
                       renderItem={({ item, index }) => (
                         <View style={{ gap: 8 }}>
-                          <Text style={styles.muted}>Product</Text>
+                          <Text style={styles.muted}>Product (with stock)</Text>
                           <View style={styles.row}>
                             {products.map((opt) => (
                               <TouchableOpacity
@@ -353,8 +353,11 @@ export default function App() {
                                   };
                                   setAnswer(q.key, next);
                                 }}
-                              >
-                                <Text style={styles.smallBtnText}>{opt.name}</Text>
+                                >
+                                <Text style={styles.smallBtnText}>
+                                  {opt.name}
+                                  {typeof opt.stock === "number" ? ` (stock: ${opt.stock})` : ""}
+                                </Text>
                               </TouchableOpacity>
                             ))}
                           </View>
