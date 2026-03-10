@@ -182,79 +182,120 @@ export function CaptureScreen() {
 
               {q.type === "line_items" ? (
                 <div style={{ display: "grid", gap: 10 }}>
-                  {(((answers[q.key] ?? []) as LineItem[]) || []).map((item, idx) => (
-                    <div key={idx} style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
-                      <div style={{ minWidth: 160 }}>
-                        <div className="muted" style={{ marginBottom: 6 }}>Product</div>
-                        <select
-                          className="input"
-                          value={(item.product ?? "").toString()}
-                          onChange={(e) => {
-                            const cur = [...(((answers[q.key] ?? []) as LineItem[]) || [])];
-                            const name = e.target.value;
-                            const prod = products.find((p) => p.name === name);
-                            cur[idx] = {
-                              ...cur[idx],
-                              product: name,
-                              mrp: prod ? prod.default_mrp : cur[idx].mrp,
-                              selling_price: prod ? prod.default_selling_price : cur[idx].selling_price,
-                            };
-                            setAnswer(q.key, cur);
-                          }}
-                        >
-                          <option value="">Select</option>
-                          {products.map((p) => (
-                            <option key={p.id} value={p.name}>
-                              {p.name} {typeof p.stock === "number" ? `(stock: ${p.stock})` : ""}
-                            </option>
-                          ))}
-                        </select>
+                  {(((answers[q.key] ?? []) as LineItem[]) || []).map((item, idx) => {
+                    const prod = products.find((p) => p.name === item.product);
+                    const stock = typeof prod?.stock === "number" ? prod.stock : null;
+                    const requested = Number(item.quantity);
+                    const over =
+                      prod && !Number.isNaN(requested) && requested > 0 && stock !== null && requested > stock;
+                    const partially =
+                      prod && !Number.isNaN(requested) && requested > 0 && stock !== null && requested > 0 && requested <= stock
+                        ? false
+                        : false;
+                    // If requested > 0 and stock is 0, treat as cannot fulfill
+                    const cannotFulfill = prod && stock === 0 && requested > 0;
+                    const highlight = over || cannotFulfill;
+                    const message =
+                      over && stock !== null
+                        ? requested > stock
+                          ? `Can only fulfill ${stock}, remaining will be unfulfilled`
+                          : ""
+                        : cannotFulfill
+                          ? "Order cannot be fulfilled (no stock)"
+                          : "";
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 10,
+                          alignItems: "flex-end",
+                          padding: 6,
+                          borderRadius: 8,
+                          backgroundColor: highlight ? "#FEF2F2" : undefined,
+                          border: highlight ? "1px solid #FCA5A5" : "1px solid transparent",
+                        }}
+                      >
+                        <div style={{ minWidth: 160 }}>
+                          <div className="muted" style={{ marginBottom: 6 }}>Product</div>
+                          <select
+                            className="input"
+                            value={(item.product ?? "").toString()}
+                            onChange={(e) => {
+                              const cur = [...(((answers[q.key] ?? []) as LineItem[]) || [])];
+                              const name = e.target.value;
+                              const nextProd = products.find((p) => p.name === name);
+                              cur[idx] = {
+                                ...cur[idx],
+                                product: name,
+                                mrp: nextProd ? nextProd.default_mrp : cur[idx].mrp,
+                                selling_price: nextProd ? nextProd.default_selling_price : cur[idx].selling_price,
+                              };
+                              setAnswer(q.key, cur);
+                            }}
+                          >
+                            <option value="">Select</option>
+                            {products.map((p) => (
+                              <option key={p.id} value={p.name}>
+                                {p.name} {typeof p.stock === "number" ? `(stock: ${p.stock})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div style={{ width: 100 }}>
+                          <div className="muted" style={{ marginBottom: 6 }}>Quantity</div>
+                          <input
+                            className="input"
+                            value={(item.quantity ?? "").toString()}
+                            onChange={(e) => {
+                              const cur = [...(((answers[q.key] ?? []) as LineItem[]) || [])];
+                              cur[idx] = { ...cur[idx], quantity: e.target.value };
+                              setAnswer(q.key, cur);
+                            }}
+                            placeholder="e.g. 150"
+                          />
+                        </div>
+                        <div style={{ width: 100 }}>
+                          <div className="muted" style={{ marginBottom: 6 }}>MRP</div>
+                          <input
+                            className="input"
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={(item.mrp ?? "").toString()}
+                            onChange={(e) => {
+                              const cur = [...(((answers[q.key] ?? []) as LineItem[]) || [])];
+                              cur[idx] = { ...cur[idx], mrp: e.target.value === "" ? "" : Number(e.target.value) };
+                              setAnswer(q.key, cur);
+                            }}
+                          />
+                        </div>
+                        <div style={{ width: 160 }}>
+                          <div className="muted" style={{ marginBottom: 6 }}>Selling price</div>
+                          <input
+                            className="input"
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={(item.selling_price ?? "").toString()}
+                            onChange={(e) => {
+                              const cur = [...(((answers[q.key] ?? []) as LineItem[]) || [])];
+                              cur[idx] = { ...cur[idx], selling_price: e.target.value === "" ? "" : Number(e.target.value) };
+                              setAnswer(q.key, cur);
+                            }}
+                          />
+                        </div>
+                        {highlight && message ? (
+                          <div style={{ marginLeft: "auto", maxWidth: 220 }}>
+                            <div style={{ fontSize: 11, color: "#B91C1C", fontWeight: 600, textAlign: "right" }}>
+                              {message}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
-                      <div style={{ width: 100 }}>
-                        <div className="muted" style={{ marginBottom: 6 }}>Quantity</div>
-                        <input
-                          className="input"
-                          value={(item.quantity ?? "").toString()}
-                          onChange={(e) => {
-                            const cur = [...(((answers[q.key] ?? []) as LineItem[]) || [])];
-                            cur[idx] = { ...cur[idx], quantity: e.target.value };
-                            setAnswer(q.key, cur);
-                          }}
-                          placeholder="e.g. 5"
-                        />
-                      </div>
-                      <div style={{ width: 100 }}>
-                        <div className="muted" style={{ marginBottom: 6 }}>MRP</div>
-                        <input
-                          className="input"
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          value={(item.mrp ?? "").toString()}
-                          onChange={(e) => {
-                            const cur = [...(((answers[q.key] ?? []) as LineItem[]) || [])];
-                            cur[idx] = { ...cur[idx], mrp: e.target.value === "" ? "" : Number(e.target.value) };
-                            setAnswer(q.key, cur);
-                          }}
-                        />
-                      </div>
-                      <div style={{ width: 120 }}>
-                        <div className="muted" style={{ marginBottom: 6 }}>Selling price</div>
-                        <input
-                          className="input"
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          value={(item.selling_price ?? "").toString()}
-                          onChange={(e) => {
-                            const cur = [...(((answers[q.key] ?? []) as LineItem[]) || [])];
-                            cur[idx] = { ...cur[idx], selling_price: e.target.value === "" ? "" : Number(e.target.value) };
-                            setAnswer(q.key, cur);
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   <div className="row">
                     <button
