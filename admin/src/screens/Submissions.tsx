@@ -164,23 +164,6 @@ export function SubmissionsScreen() {
               {rows.map((s) => {
                 const a = s.answers || {};
                 const productsArr = Array.isArray(a.products) ? a.products : [];
-                const productsText = productsArr
-                  .map((p: any) => {
-                    const name = `${p?.product || p?.name || ""}`.trim();
-                    const requested = p?.quantity != null ? ` req:${p.quantity}` : "";
-                    const fulfilled = p?.fulfilled_quantity != null ? ` full:${p.fulfilled_quantity}` : "";
-                    const unfulfilled = p?.unfulfilled_quantity != null ? ` unfull:${p.unfulfilled_quantity}` : "";
-                    const status = p?.fulfillment_status ? ` status:${p.fulfillment_status}` : "";
-                    const mrp = p?.mrp != null ? ` MRP:${p.mrp}` : "";
-                    const sp = p?.selling_price != null ? ` SP:${p.selling_price}` : "";
-                    const stock =
-                      name && Object.prototype.hasOwnProperty.call(productStockByName, name)
-                        ? ` stock:${productStockByName[name]}`
-                        : "";
-                    return `${name}${requested}${fulfilled}${unfulfilled}${status}${mrp}${sp}${stock}`.trim();
-                  })
-                  .filter(Boolean)
-                  .join("; ");
                 return (
                   <tr key={s.id}>
                     <td style={{ fontFamily: "monospace", fontWeight: 700 }}>{s.order_id || "—"}</td>
@@ -191,7 +174,74 @@ export function SubmissionsScreen() {
                     <td>{a.district || ""}</td>
                     <td>{a.city || ""}</td>
                     <td>{a.village || ""}</td>
-                    <td style={{ maxWidth: 360 }}>{productsText}</td>
+                    <td style={{ maxWidth: 360 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {productsArr.map((p: any, idx: number) => {
+                          const name = `${p?.product || p?.name || ""}`.trim() || "(unknown)";
+                          const req = p?.quantity ?? "";
+                          const full = p?.fulfilled_quantity ?? "";
+                          const unfull = p?.unfulfilled_quantity ?? "";
+                          const status = p?.fulfillment_status || "";
+                          const mrp = p?.mrp;
+                          const sp = p?.selling_price;
+                          const stock =
+                            name && Object.prototype.hasOwnProperty.call(productStockByName, name)
+                              ? productStockByName[name]
+                              : undefined;
+                          return (
+                            <div
+                              key={idx}
+                              style={{
+                                padding: "4px 8px",
+                                borderRadius: 8,
+                                backgroundColor: "#f8fafc",
+                                border: "1px solid rgba(148,163,184,0.35)",
+                                fontSize: 12,
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 2,
+                              }}
+                            >
+                              <div style={{ fontWeight: 700 }}>{name}</div>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                {req !== "" && <span>Req: {req}</span>}
+                                {full !== "" && <span>Fulfilled: {full}</span>}
+                                {unfull !== "" && <span>Unfulfilled: {unfull}</span>}
+                                {typeof stock === "number" && <span>Stock: {stock}</span>}
+                              </div>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                {mrp != null && <span>MRP: {mrp}</span>}
+                                {sp != null && <span>SP: {sp}</span>}
+                                {status && (
+                                  <span
+                                    style={{
+                                      padding: "2px 8px",
+                                      borderRadius: 999,
+                                      backgroundColor:
+                                        status === "Yes"
+                                          ? "#dcfce7"
+                                          : status === "Partially"
+                                          ? "#fef9c3"
+                                          : "#fee2e2",
+                                      color:
+                                        status === "Yes"
+                                          ? "#166534"
+                                          : status === "Partially"
+                                          ? "#854d0e"
+                                          : "#991b1b",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {status}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {productsArr.length === 0 && <span className="muted">No products</span>}
+                      </div>
+                    </td>
                     <td style={{ fontWeight: 700 }}>{s.total_amount != null ? s.total_amount : "—"}</td>
                     <td>
                       <select
