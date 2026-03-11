@@ -54,6 +54,7 @@ class Submission(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     order_id: Mapped[str | None] = mapped_column(String(20), unique=True, index=True, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="In Progress", index=True)
     answers: Mapped[dict] = mapped_column(JSONB)
     form_snapshot: Mapped[dict] = mapped_column(JSONB)
 

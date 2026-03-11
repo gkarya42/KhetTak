@@ -111,6 +111,7 @@ def _submission_to_out(s: Submission) -> SubmissionOut:
     return SubmissionOut(
         id=s.id,
         order_id=s.order_id,
+        status=s.status,
         answers=s.answers,
         created_at=s.created_at,
         total_amount=_order_total_amount(s.answers or {}),
@@ -320,6 +321,7 @@ def create_submission(
 
     submission = Submission(
         order_id=generate_order_id(),
+        status="In Progress",
         answers=answers,
         form_snapshot={"questions": form_snapshot},
     )
@@ -421,9 +423,32 @@ def admin_delete_product(product_id: str, _user: str = Depends(require_user), db
 
 
 @app.get("/api/admin/submissions", response_model=list[SubmissionOut])
-def admin_list_submissions(_user: str = Depends(require_user), db: Session = Depends(get_db)) -> list[SubmissionOut]:
+def admin_list_submissions(
+    _user: str = Depends(require_user),
+    db: Session = Depends(get_db),
+) -> list[SubmissionOut]:
     rows = db.scalars(select(Submission).order_by(Submission.created_at.desc())).all()
     return [_submission_to_out(s) for s in rows]
+
+
+@app.put("/api/admin/submissions/{submission_id}/status", response_model=SubmissionOut)
+def admin_update_submission_status(
+    submission_id: str,
+    status: str,
+    _user: str = Depends(require_user),
+    db: Session = Depends(get_db),
+) -> SubmissionOut:
+    """Update high-level order status: In Progress | Completed | Failed."""
+    allowed = {"In Progress", "Completed", "Failed"}
+    if status not in allowed:
+        raise HTTPException(status_code=400, detail=f"Status must be one of {sorted(allowed)}")
+    sub = db.get(Submission, submission_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    sub.status = status
+    db.commit()
+    db.refresh(sub)
+    return _submission_to_out(sub)
 
 
 @app.get("/api/admin/analytics")

@@ -52,6 +52,7 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 export type Submission = {
   id: string;
   order_id?: string | null;
+  status: string;
   answers: Record<string, any>;
   created_at: string;
   total_amount?: number | null;
@@ -120,6 +121,13 @@ export const api = {
   },
   listSubmissions(): Promise<Submission[]> {
     return http<Submission[]>("/api/admin/submissions");
+  },
+  updateSubmissionStatus(id: string, status: string): Promise<Submission> {
+    const params = new URLSearchParams({ status });
+    return http<Submission>(`/api/admin/submissions/${id}/status?${params.toString()}`, {
+      method: "PUT",
+      body: JSON.stringify({}),
+    });
   },
   analytics(): Promise<any> {
     return http<any>("/api/admin/analytics");

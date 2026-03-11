@@ -14,8 +14,37 @@ export function SubmissionsScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "In Progress" | "Completed" | "Failed">("all");
+  const [sortField, setSortField] = useState<keyof Submission | "customer_name" | "total_amount">("created_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const rows = useMemo(() => items, [items]);
+  const rows = useMemo(() => {
+    let data = [...items];
+    if (statusFilter !== "all") {
+      data = data.filter((s) => s.status === statusFilter);
+    }
+    data.sort((a, b) => {
+      const dir = sortDir === "asc" ? 1 : -1;
+      if (sortField === "created_at") {
+        return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * dir;
+      }
+      if (sortField === "order_id") {
+        return ((a.order_id || "").localeCompare(b.order_id || "")) * dir;
+      }
+      if (sortField === "total_amount") {
+        const av = a.total_amount ?? 0;
+        const bv = b.total_amount ?? 0;
+        return (av - bv) * dir;
+      }
+      if (sortField === "customer_name") {
+        const an = (a.answers?.customer_name || "") as string;
+        const bn = (b.answers?.customer_name || "") as string;
+        return an.localeCompare(bn) * dir;
+      }
+      return 0;
+    });
+    return data;
+  }, [items, statusFilter, sortField, sortDir]);
 
   const productStockByName = useMemo(() => {
     const map: Record<string, number> = {};
@@ -43,17 +72,48 @@ export function SubmissionsScreen() {
     load();
   }, []);
 
+  function toggleSort(field: typeof sortField) {
+    setSortField((prevField) => {
+      if (prevField === field) {
+        setSortDir((prevDir) => (prevDir === "asc" ? "desc" : "asc"));
+        return prevField;
+      }
+      setSortDir("asc");
+      return field;
+    });
+  }
+
+  async function updateStatus(id: string, status: "In Progress" | "Completed" | "Failed") {
+    try {
+      const updated = await api.updateSubmissionStatus(id, status);
+      setItems((prev) => prev.map((s) => (s.id === id ? updated : s)));
+    } catch (e: any) {
+      setError(e?.message || "Failed to update status");
+    }
+  }
+
   return (
     <div className="container">
       <div className="header">
         <div className="brand">
           <div className="logo" />
           <div className="title">
-            <h1>All Entries</h1>
-            <p>Every customer submission stored in Postgres.</p>
+            <h1>All Orders</h1>
+            <p>Every order captured from KhetTak app.</p>
           </div>
         </div>
         <div className="row">
+          <select
+            className="input"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            style={{ maxWidth: 180 }}
+          >
+            <option value="all">All statuses</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+            <option value="Failed">Failed</option>
+          </select>
           <button className="btn" onClick={load} disabled={loading}>
             Refresh
           </button>
@@ -69,8 +129,8 @@ export function SubmissionsScreen() {
       <div className="card">
         <div className="row" style={{ alignItems: "baseline", justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontWeight: 900 }}>Submissions</div>
-            <div className="muted">Newest first.</div>
+            <div style={{ fontWeight: 900 }}>Orders</div>
+            <div className="muted">Filter by status, sort on any column.</div>
           </div>
           <div className="pill">{rows.length} total</div>
         </div>
@@ -79,16 +139,25 @@ export function SubmissionsScreen() {
           <table className="table">
             <thead>
               <tr>
-                <th>Order ID</th>
-                <th>Time</th>
-                <th>Customer</th>
+                <th onClick={() => toggleSort("order_id")} style={{ cursor: "pointer" }}>
+                  Order ID
+                </th>
+                <th onClick={() => toggleSort("created_at")} style={{ cursor: "pointer" }}>
+                  Time
+                </th>
+                <th onClick={() => toggleSort("customer_name")} style={{ cursor: "pointer" }}>
+                  Customer
+                </th>
                 <th>Phone</th>
                 <th>State</th>
                 <th>District</th>
                 <th>City</th>
                 <th>Village</th>
                 <th>Products (with stock)</th>
-                <th>Total</th>
+                <th onClick={() => toggleSort("total_amount")} style={{ cursor: "pointer" }}>
+                  Total
+                </th>
+                <th>Order status</th>
               </tr>
             </thead>
             <tbody>
@@ -124,6 +193,19 @@ export function SubmissionsScreen() {
                     <td>{a.village || ""}</td>
                     <td style={{ maxWidth: 360 }}>{productsText}</td>
                     <td style={{ fontWeight: 700 }}>{s.total_amount != null ? s.total_amount : "—"}</td>
+                    <td>
+                      <select
+                        className="input"
+                        value={s.status}
+                        onChange={(e) =>
+                          updateStatus(s.id, e.target.value as "In Progress" | "Completed" | "Failed")
+                        }
+                      >
+                        <option value="In Progress">In Progress</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Failed">Failed</option>
+                      </select>
+                    </td>
                   </tr>
                 );
               })}

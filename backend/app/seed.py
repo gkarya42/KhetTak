@@ -132,6 +132,20 @@ def ensure_order_id_column(engine):  # noqa: ANN001
         conn.commit()
 
 
+def ensure_submission_status_column(engine):  # noqa: ANN001
+    """Add status column to submissions if missing."""
+    from sqlalchemy import inspect
+
+    insp = inspect(engine)
+    if "submissions" not in insp.get_table_names():
+        return
+    cols = [c["name"] for c in insp.get_columns("submissions")]
+    if "status" in cols:
+        return
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE submissions ADD COLUMN status VARCHAR(32) DEFAULT 'In Progress'"))
+        conn.commit()
+
 def ensure_product_columns(engine):  # noqa: ANN001
     """Ensure products table has stock column and no legacy order column."""
     from sqlalchemy import inspect

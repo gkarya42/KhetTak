@@ -53,7 +53,7 @@ function Nav() {
             Customer Entry
           </Link>
           <Link className={`btn ${active.submissions ? "btnPrimary" : ""}`} to="/submissions">
-            All Entries
+            All Orders
           </Link>
           <Link className={`btn ${active.dashboard ? "btnPrimary" : ""}`} to="/dashboard">
             Dashboard
