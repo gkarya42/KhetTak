@@ -22,7 +22,13 @@ from app.schemas import (
     SubmissionCreate,
     SubmissionOut,
 )
-from app.seed import ensure_order_id_column, ensure_product_columns, seed_defaults, seed_products
+from app.seed import (
+    ensure_order_id_column,
+    ensure_product_columns,
+    ensure_submission_status_column,
+    seed_defaults,
+    seed_products,
+)
 from app.validation import ValidationError, validate_answers
 
 
@@ -230,6 +236,7 @@ def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
     ensure_order_id_column(engine)
     ensure_product_columns(engine)
+    ensure_submission_status_column(engine)
     with Session(engine) as db:
         seed_defaults(db)
         seed_products(db)
